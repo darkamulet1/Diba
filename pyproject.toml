@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raavi-ephemeris-sandbox"
+version = "0.2.0"
+description = "Vectorized astronomical calculations using Swiss Ephemeris"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Raavi Team"}]
+dependencies = [
+    "numpy",
+    "pytz",
+    "swisseph"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
+]
+
+[tool.setuptools]
+py-modules = ["raavi_ephemeris", "raavi_ephemeris_vector"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
