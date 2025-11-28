@@ -10,9 +10,14 @@ from logic.aspects import compute_aspects_for_frame
 
 
 class ChartCalculator:
-    def __init__(self):
+    def __init__(self, *, sidereal: bool = False, ayanamsa: str = "LAHIRI"):
         # Scalar provider with houses (Placidus by default)
-        self.provider = get_default_provider(calculate_houses=True, house_system="P")
+        self.provider = get_default_provider(
+            calculate_houses=True,
+            house_system="P",
+            sidereal=sidereal,
+            ayanamsa=ayanamsa,
+        )
 
     def _json_default(self, obj):
         if isinstance(obj, datetime):

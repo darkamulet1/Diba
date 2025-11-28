@@ -2,9 +2,14 @@ import numpy as np
 import swisseph as swe
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-# Import BODY_IDS from the scalar module. 
-# This works because raavi_ephemeris does NOT import this file at top-level anymore.
-from raavi_ephemeris import BODY_IDS
+from raavi_ephemeris import (
+    BODY_IDS,
+    BASE_FLAGS,
+    SIDEREAL_EXTRA,
+    RISE_FLAGS,
+    ayanamsa_guard,
+    compute_jd_pair,
+)
 
 @dataclass
 class LazySkyPosition:
@@ -41,22 +46,26 @@ class EphemerisBatch:
         return LazySkyFrame(jd=jd, positions=lazy_positions)
 
 class VectorizedProvider:
-    def __init__(self, ephe_path: Optional[str] = None, bodies: Optional[List[str]] = None, sidereal: bool = False, ayanamsa: str = "LAHIRI"):
+    def __init__(
+        self,
+        ephe_path: Optional[str] = None,
+        bodies: Optional[List[str]] = None,
+        sidereal: bool = False,
+        ayanamsa: str = "LAHIRI",
+        node_mode: str = "mean",
+        ketu_lat_mode: str = "pyjhora",
+    ):
         self.bodies = bodies or list(BODY_IDS.keys())
         self.body_ids = [BODY_IDS[b] for b in self.bodies]
         self.sidereal = sidereal
         self.ayanamsa = ayanamsa
-        
-        self.flags = swe.FLG_MOSEPH | swe.FLG_SPEED
+        self.node_mode = node_mode
+        self.ketu_lat_mode = ketu_lat_mode
         if ephe_path:
             swe.set_ephe_path(ephe_path)
-            self.flags = swe.FLG_SWIEPH | swe.FLG_SPEED
-
+        self.flags = BASE_FLAGS
         if self.sidereal:
-            self.flags |= swe.FLG_SIDEREAL
-            mode_name = f"SIDM_{self.ayanamsa.upper()}"
-            mode = getattr(swe, mode_name, swe.SIDM_LAHIRI)
-            swe.set_sid_mode(mode, 0, 0)
+            self.flags |= SIDEREAL_EXTRA | RISE_FLAGS
 
     def calculate_batch(self, jds: np.ndarray) -> EphemerisBatch:
         # Collect results in Python lists to avoid per-element NumPy assignment overhead.
@@ -65,9 +74,10 @@ class VectorizedProvider:
         calc_ut = swe.calc_ut
         flags = self.flags
 
-        for body_id in self.body_ids:
-            body_results = [calc_ut(jd, body_id, flags)[0] for jd in jds]
-            collected_data.append(body_results)
+        with ayanamsa_guard(self.sidereal, self.ayanamsa):
+            for body_id in self.body_ids:
+                body_results = [calc_ut(jd, body_id, flags)[0] for jd in jds]
+                collected_data.append(body_results)
 
         # collected_data: (num_bodies, num_jds, 6)
         # We need: (num_jds, num_bodies, 6)
