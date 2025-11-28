@@ -13,7 +13,7 @@ authors = [{name = "Raavi Team"}]
 dependencies = [
     "numpy",
     "pytz",
-    "swisseph"
+    "pyswisseph"
 ]
 
 [project.optional-dependencies]
