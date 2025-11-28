@@ -56,16 +56,51 @@ class VectorizedProvider:
         ketu_lat_mode: str = "pyjhora",
     ):
         self.bodies = bodies or list(BODY_IDS.keys())
-        self.body_ids = [BODY_IDS[b] for b in self.bodies]
         self.sidereal = sidereal
         self.ayanamsa = ayanamsa
         self.node_mode = node_mode
         self.ketu_lat_mode = ketu_lat_mode
+
+        # Build calculation list: exclude Ketu (synthesized), handle Rahu node mode
+        # Ensure Rahu is calculated if Ketu is requested
+        calc_bodies_set = set()
+        for b in self.bodies:
+            if b == "Ketu":
+                # Ketu is synthesized from Rahu
+                calc_bodies_set.add("Rahu")
+            elif b != "Ketu":
+                calc_bodies_set.add(b)
+
+        # Map to swisseph IDs, preserving order
+        self.body_ids = []
+        self._calc_body_names = []
+        for b in self.bodies:
+            # Skip Ketu in calculation, it will be synthesized
+            if b == "Ketu":
+                continue
+            # Handle Rahu node mode
+            if b == "Rahu":
+                body_id = swe.MEAN_NODE if self.node_mode == "mean" else swe.TRUE_NODE
+            else:
+                body_id = BODY_IDS.get(b)
+
+            if body_id is not None:
+                self.body_ids.append(body_id)
+                self._calc_body_names.append(b)
+
+        # If Ketu requested but Rahu not in bodies, add Rahu to calculation
+        if "Ketu" in self.bodies and "Rahu" not in self.bodies:
+            rahu_id = swe.MEAN_NODE if self.node_mode == "mean" else swe.TRUE_NODE
+            self.body_ids.append(rahu_id)
+            self._calc_body_names.append("Rahu")
+
         if ephe_path:
             swe.set_ephe_path(ephe_path)
         self.flags = BASE_FLAGS
         if self.sidereal:
-            self.flags |= SIDEREAL_EXTRA | RISE_FLAGS
+            self.flags |= SIDEREAL_EXTRA
+        # RISE_FLAGS removed from general position calculation
+        # They should only be used in rise/set calculations (panchanga_engine)
 
     def calculate_batch(self, jds: np.ndarray) -> EphemerisBatch:
         # Collect results in Python lists to avoid per-element NumPy assignment overhead.
@@ -79,9 +114,52 @@ class VectorizedProvider:
                 body_results = [calc_ut(jd, body_id, flags)[0] for jd in jds]
                 collected_data.append(body_results)
 
-        # collected_data: (num_bodies, num_jds, 6)
-        # We need: (num_jds, num_bodies, 6)
-        raw_results = np.array(collected_data, dtype=np.float64).transpose(1, 0, 2)
+        # collected_data: (num_bodies_calc, num_jds, 6)
+        # We need: (num_jds, num_bodies_calc, 6)
+        raw_results_calc = np.array(collected_data, dtype=np.float64).transpose(1, 0, 2)
 
-        return EphemerisBatch(jds=jds, raw_results=raw_results, bodies=self.bodies)
+        # Now synthesize Ketu if requested
+        if "Ketu" in self.bodies:
+            # Find Rahu index in calculated bodies
+            try:
+                rahu_idx = self._calc_body_names.index("Rahu")
+            except ValueError:
+                raise RuntimeError("Ketu requested but Rahu not calculated")
+
+            # Extract Rahu data: (num_jds, 6)
+            rahu_data = raw_results_calc[:, rahu_idx, :]
+
+            # Synthesize Ketu
+            # Ketu longitude = (Rahu longitude + 180) % 360
+            ketu_data = rahu_data.copy()
+            ketu_data[:, 0] = (rahu_data[:, 0] + 180.0) % 360.0  # longitude
+            # Latitude: PyJHora mode keeps same sign, standard mode inverts
+            if self.ketu_lat_mode == "pyjhora":
+                ketu_data[:, 1] = rahu_data[:, 1]
+            else:
+                ketu_data[:, 1] = -rahu_data[:, 1]
+            # Distance and speed same as Rahu
+            # ketu_data[:, 2:] already copied
+
+            # Build final results with Ketu inserted at correct position
+            final_bodies = []
+            final_data_list = []
+            calc_idx = 0
+
+            for body_name in self.bodies:
+                if body_name == "Ketu":
+                    final_bodies.append("Ketu")
+                    final_data_list.append(ketu_data)
+                else:
+                    final_bodies.append(body_name)
+                    final_data_list.append(raw_results_calc[:, calc_idx, :])
+                    calc_idx += 1
+
+            # Stack into final array: (num_jds, num_bodies, 6)
+            raw_results = np.stack(final_data_list, axis=1)
+        else:
+            raw_results = raw_results_calc
+            final_bodies = self._calc_body_names
+
+        return EphemerisBatch(jds=jds, raw_results=raw_results, bodies=final_bodies)
 

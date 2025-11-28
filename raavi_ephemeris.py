@@ -149,7 +149,9 @@ class SwissEphemerisProvider:
             swe.set_ephe_path(ephe_path)
         self.flags = BASE_FLAGS
         if self.sidereal:
-            self.flags |= SIDEREAL_EXTRA | RISE_FLAGS
+            self.flags |= SIDEREAL_EXTRA
+        # RISE_FLAGS removed from general position calculation
+        # They should only be used in rise/set calculations (panchanga_engine)
 
     def calculate_positions(
         self,

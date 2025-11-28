@@ -22,7 +22,8 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["raavi_ephemeris", "raavi_ephemeris_vector"]
+packages = ["logic"]
+py-modules = ["raavi_ephemeris", "raavi_ephemeris_vector", "panchanga_engine", "chart_calculator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
