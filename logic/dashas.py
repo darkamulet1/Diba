@@ -57,8 +57,8 @@ def calculate_vimshottari(moon_longitude: float, birth_date: datetime, total_yea
     # How far into the nakshatra is the Moon?
     # Start of current nakshatra:
     nak_start_lon = nak_idx * NAKSHATRA_EXTENT
-    # Degrees traversed inside the nakshatra:
-    traversed = moon_longitude - nak_start_lon
+    # Degrees traversed inside the nakshatra (handle wraparound for Revati):
+    traversed = (moon_longitude - nak_start_lon) % 360.0
     # Fraction remaining (to be lived):
     fraction_remaining = 1.0 - (traversed / NAKSHATRA_EXTENT)
 

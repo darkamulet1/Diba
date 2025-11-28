@@ -138,7 +138,17 @@ def _local_day_midnight(time_loc: TimeLocation) -> TimeLocation:
 
 def _compute_sunrise_sunset(eph: SwissEphemerisProvider, time_loc: TimeLocation) -> tuple[float, float]:
     midnight_loc = _local_day_midnight(time_loc)
-    utc_dt = midnight_loc.dt_local.astimezone(datetime.timezone.utc)
+    dt_local = midnight_loc.dt_local
+
+    # Ensure dt_local has timezone info before converting to UTC
+    if dt_local.tzinfo is None:
+        if time_loc.tz:
+            dt_local = time_loc.tz.localize(dt_local)
+        else:
+            # Assume UTC if no timezone provided
+            dt_local = dt_local.replace(tzinfo=datetime.timezone.utc)
+
+    utc_dt = dt_local.astimezone(datetime.timezone.utc)
     start_jd_utc = swe.julday(utc_dt.year, utc_dt.month, utc_dt.day,
                               utc_dt.hour + utc_dt.minute/60.0 + utc_dt.second/3600.0)
 

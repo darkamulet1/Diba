@@ -12,6 +12,8 @@ from logic.aspects import compute_aspects_for_frame
 class ChartCalculator:
     def __init__(self, *, sidereal: bool = False, ayanamsa: str = "LAHIRI"):
         # Scalar provider with houses (Placidus by default)
+        self.sidereal = sidereal
+        self.ayanamsa = ayanamsa
         self.provider = get_default_provider(
             calculate_houses=True,
             house_system="P",
@@ -108,13 +110,17 @@ class ChartCalculator:
                 )
 
         # 5) Assemble final structure
+        zodiac_mode = "Sidereal" if self.sidereal else "Tropical"
+        ayanamsa_info = f"{zodiac_mode} ({self.ayanamsa})" if self.sidereal else "Tropical (N/A)"
+
         return {
             "meta": {
                 "name": name,
                 "datetime_utc": dt_utc,
                 "latitude": lat,
                 "longitude": lon,
-                "ayanamsa": "Lahiri (dev: Moshier if no ephe_path)",
+                "zodiac_system": zodiac_mode,
+                "ayanamsa": ayanamsa_info,
                 "jd": frame.jd,
             },
             "houses": frame.houses,
