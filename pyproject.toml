@@ -13,7 +13,7 @@ authors = [{name = "Raavi Team"}]
 dependencies = [
     "numpy",
     "pytz",
-    "pyswisseph"
+    "swisseph"
 ]
 
 [project.optional-dependencies]
@@ -22,8 +22,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["logic"]
-py-modules = ["raavi_ephemeris", "raavi_ephemeris_vector", "panchanga_engine", "chart_calculator"]
+py-modules = ["raavi_ephemeris", "raavi_ephemeris_vector"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

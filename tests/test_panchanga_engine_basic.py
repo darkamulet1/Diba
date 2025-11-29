@@ -5,7 +5,6 @@ from datetime import datetime
 import pytest
 import pytz
 
-# Adjust path to find the module if necessary
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Raavi"))
 
 from raavi_ephemeris import TimeLocation, get_default_provider
